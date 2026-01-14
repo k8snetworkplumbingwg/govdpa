@@ -2,6 +2,7 @@ package kvdpa
 
 import (
 	"fmt"
+	"net"
 	"syscall"
 
 	"github.com/vishvananda/netlink"
@@ -22,6 +23,8 @@ const (
 	VdpaCmdDevDel
 	VdpaCmdDevGet       /* can dump */
 	VdpaCmdDevConfigGet /* can dump */
+	VdpaCmdDevVStatsGet
+	VdpaCmdDevAttrSet
 )
 
 /* VDPA Netlink Attributes */
@@ -110,6 +113,12 @@ func (defaultNetlinkOps) NewAttribute(attrType int, data interface{}) (*nl.RtAtt
 		bytes := make([]byte, len(strData)+1)
 		copy(bytes, strData)
 		return nl.NewRtAttr(attrType, bytes), nil
+	case VdpaAttrDevNetCfgMacAddr:
+		macData, ok := data.(net.HardwareAddr)
+		if !ok {
+			return nil, fmt.Errorf("attribute type %d requires encoded data", attrType)
+		}
+		return nl.NewRtAttr(attrType, macData), nil
 		/* TODO
 		case:
 		    VdpaAttrMgmtDevBusName          string
@@ -123,7 +132,6 @@ func (defaultNetlinkOps) NewAttribute(attrType int, data interface{}) (*nl.RtAtt
 		    VdpaAttrDevMaxVqSize  u16
 		    VdpaAttrDevMinVqSize  u16
 
-		    VdpaAttrDevNetCfgMacAddr  binary
 		    VdpaAttrDevNetStatus      u8
 		    VdpaAttrDevNetCfgMaxVqp   u16
 		    VdpaAttrGetNetCfgMTU      u16

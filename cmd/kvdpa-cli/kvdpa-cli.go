@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"text/template"
 
@@ -87,6 +88,22 @@ func deleteAction(c *cli.Context) error {
 	return vdpa.DeleteVdpaDevice(devName)
 }
 
+func setMacAction(c *cli.Context) error {
+	if c.Args().Len() != 2 {
+		err := cli.ShowAppHelp(c)
+		return err
+	}
+
+	devName := c.Args().Get(0)
+	macAddr, err := net.ParseMAC(c.Args().Get(1))
+
+	if err != nil {
+		return err
+	}
+
+	return vdpa.SetVdpaDeviceMac(devName, macAddr)
+}
+
 func main() {
 	app := &cli.App{
 		Name:  "kvdpa-cli",
@@ -116,6 +133,11 @@ func main() {
 				Usage:     "Delete a vdpa device",
 				Action:    deleteAction,
 				ArgsUsage: "[dev]",
+			},
+			{Name: "setmac",
+				Usage:     "Set mac to an existing vdpa device",
+				Action:    setMacAction,
+				ArgsUsage: "[dev] [mac]",
 			},
 		},
 	}

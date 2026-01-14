@@ -1,6 +1,7 @@
 package kvdpa
 
 import (
+	"net"
 	"os"
 	"path/filepath"
 	"syscall"
@@ -320,4 +321,28 @@ func parseDevLinkVdpaDevList(busName string, mgmtDeviceName string, msgs [][]byt
 		devices = append(devices, dev)
 	}
 	return devices, nil
+}
+
+// SetVdpaDeviceMac sets a new mac address to an existing vdpa device
+func SetVdpaDeviceMac(vdpaDeviceName string, mac net.HardwareAddr) error {
+	var attributes []*nl.RtAttr
+
+	if vdpaDeviceName == "" || len(mac) == 0 {
+		return unix.EINVAL
+	}
+
+	nameAttr, err := GetNetlinkOps().NewAttribute(VdpaAttrDevName, vdpaDeviceName)
+	if err != nil {
+		return err
+	}
+	attributes = append(attributes, nameAttr)
+
+	macAttr, err := GetNetlinkOps().NewAttribute(VdpaAttrDevNetCfgMacAddr, mac)
+	if err != nil {
+		return err
+	}
+	attributes = append(attributes, macAttr)
+	_, err = GetNetlinkOps().RunVdpaNetlinkCmd(VdpaCmdDevAttrSet, unix.NLM_F_ACK|unix.NLM_F_REQUEST, attributes)
+
+	return err
 }

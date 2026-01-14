@@ -2,6 +2,7 @@ package kvdpa
 
 import (
 	"fmt"
+	"net"
 	"syscall"
 	"testing"
 
@@ -299,4 +300,53 @@ func TestDevDelete(t *testing.T) {
 			assert.Equal(t, tt.err, err)
 		})
 	}
+}
+
+func TestDevSetMac(t *testing.T) {
+	tests := []struct {
+		vdpaDevName string
+		macAddr     net.HardwareAddr
+		err         error
+	}{
+		{
+			vdpaDevName: "vdpa0",
+			macAddr:     net.HardwareAddr([]byte{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}),
+			err:         nil,
+		},
+		{
+			vdpaDevName: "",
+			macAddr:     net.HardwareAddr([]byte{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}),
+			err:         unix.EINVAL,
+		},
+		{
+			vdpaDevName: "vdpa1",
+			macAddr:     net.HardwareAddr([]byte{}),
+			err:         unix.EINVAL,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("%s_%s_%s", "TestDevSetMac", tt.vdpaDevName, tt.macAddr), func(t *testing.T) {
+			netLinkMock := &mocks.NetlinkOps{}
+			SetNetlinkOps(netLinkMock)
+			netLinkMock.On("NewAttribute",
+				VdpaAttrDevName,
+				tt.vdpaDevName,
+			).Return(&nl.RtAttr{}, nil)
+			netLinkMock.On("NewAttribute",
+				VdpaAttrDevNetCfgMacAddr,
+				tt.macAddr,
+			).Return(&nl.RtAttr{}, nil)
+			netLinkMock.On("RunVdpaNetlinkCmd",
+				VdpaCmdDevAttrSet,
+				mock.MatchedBy(func(flags int) bool {
+					return (flags|unix.NLM_F_ACK != 0 && flags|unix.NLM_F_REQUEST != 0)
+				}),
+				mock.AnythingOfType("[]*nl.RtAttr")).Return([][]byte{}, tt.err)
+
+			err := SetVdpaDeviceMac(tt.vdpaDevName, tt.macAddr)
+			assert.Equal(t, tt.err, err)
+		})
+	}
+
 }
